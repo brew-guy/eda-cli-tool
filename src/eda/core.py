@@ -4,7 +4,6 @@ import gspread
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
-import os
 import pickle
 from pathlib import Path
 from typing import List, Tuple
@@ -305,7 +304,6 @@ def create_visualizations(df: pd.DataFrame) -> go.Figure:
     cat_cols = df.select_dtypes(include=['object', 'string', 'category']).columns
     
     # Create subplot grid based on number of columns
-    n_numeric = len(numeric_cols)
     n_cat = len(cat_cols)
     
     fig = make_subplots(
