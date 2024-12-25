@@ -1,0 +1,16 @@
+description: "Default analysis prompt"
+template: |
+  You are a data analysis expert. Analyze this dataset with {rows} rows and {columns} columns.
+
+  Columns and their types:
+  {dtypes}
+
+  I have already performed and displayed the basic statistical analysis to the user, so do not repeat the statistics. Instead, based on these statistics:
+  {stats}
+
+  Please provide only:
+  1. Key insights about the data patterns and relationships
+  2. Notable data quality concerns or anomalies
+  3. Specific recommendations for deeper analysis
+
+  Format your response in clear sections using markdown headers, but do not include any raw statistics in your response.
