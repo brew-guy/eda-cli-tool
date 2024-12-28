@@ -1,27 +1,33 @@
-import click
-from eda.core import analyze_data, get_sheets_list
+import rich_click as click
+from eda.core import analyze_data, get_sheets_list, get_google_credentials
 import shutil
 from pathlib import Path
 from pyfiglet import Figlet
 import gspread
-import pickle
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
+from rich.console import Console
+from rich.markdown import Markdown
+
+# Use Rich markup
+click.rich_click.USE_RICH_MARKUP = True
+
+console = Console()
 
 def print_banner():
-    """Print a cool ASCII art banner with rainbow colors."""
+    """Print a cool ASCII art banner with a rainbow color effect."""
     f = Figlet(font='slant')
-    # Split the banner into lines
-    banner_lines = f.renderText('EDA Tool').rstrip().split('\n')
-    # Create a rainbow color scheme
-    colors = ['bright_red', 'yellow', 'bright_green', 'bright_blue', 'bright_magenta']
+    banner_text = f.renderText('EDA Tool').rstrip()
     
-    # Print each line with its color
-    for line, color in zip(banner_lines, colors):
-        click.echo(click.style(line, fg=color, bold=True))
+    # Apply rainbow color effect
+    colors = ['red', 'yellow', 'green', 'cyan', 'blue', 'magenta']
+    colored_banner = ""
+    for i, line in enumerate(banner_text.split('\n')):
+        color = colors[i % len(colors)]
+        colored_banner += f"[{color}]{line}[/]\n"
     
-    # Add a subtle tagline
-    click.echo(click.style("\nExploratory Data Analysis Tool", fg='white', dim=True))
+    console.print(colored_banner, markup=True)
+    console.print("[bold]Exploratory Data Analysis Tool[/]", markup=True)
 
 @click.group(invoke_without_command=True)
 @click.pass_context
@@ -77,20 +83,20 @@ def select_sheet(source: str) -> int:
     
     sheets = get_sheets_list(spreadsheet)
     
-    click.echo("\nAvailable sheets:")
+    console.print("\n[bold green]Available sheets:[/]", markup=True)
     for idx, title in sheets:
-        click.echo(f"{idx}: {title}")
+        console.print(f"[cyan]{idx}[/]: {title}", markup=True)
     
     while True:
-        sheet_idx = click.prompt(
-            "\nSelect sheet number",
-            type=int,
-            default=0
-        )
-        if 0 <= sheet_idx < len(sheets):
-            click.echo(f"\nSelected sheet: {sheets[sheet_idx][1]}")
-            return sheet_idx
-        click.echo("Invalid selection. Please try again.")
+        sheet_idx = console.input("\n[bold yellow]Select sheet number[/]: ")
+        try:
+            sheet_idx = int(sheet_idx)
+            if 0 <= sheet_idx < len(sheets):
+                console.print(f"\n[bold green]Selected sheet:[/] {sheets[sheet_idx][1]}", markup=True)
+                return sheet_idx
+        except ValueError:
+            pass
+        console.print("[bold red]Invalid selection. Please try again.[/]", markup=True)
 
 @main.command()
 @click.argument('source')
@@ -117,45 +123,17 @@ def analyze(source, output, sheet, llm, model, viz, prompt):
     if source.startswith('gs://') and sheet is None:
         sheet = select_sheet(source)
     
-    result = analyze_data(source, sheet or 0, llm=llm, model=model, viz=viz, prompt_type=prompt)
+    result, llm_output = analyze_data(source, sheet or 0, llm=llm, model=model, viz=viz, prompt_type=prompt)
     if output:
         with open(output, 'w') as f:
             f.write(result)
+            if llm_output:
+                f.write("\n\nLLM Analysis:\n")
+                f.write(llm_output)
     else:
-        click.echo(result)
-
-def get_google_credentials():
-    """
-    Get or refresh Google OAuth2 credentials.
-    
-    Returns:
-        google.oauth2.credentials.Credentials: The OAuth2 credentials
-    """
-    credentials = None
-    token_path = Path.home() / '.eda' / 'token.pickle'
-    credentials_path = Path.home() / '.eda' / 'client_secrets.json'
-
-    # Load existing credentials if available
-    if token_path.exists():
-        with open(token_path, 'rb') as token:
-            credentials = pickle.load(token)
-
-    # If credentials are invalid or don't exist, get new ones
-    if not credentials or not credentials.valid:
-        if credentials and credentials.expired and credentials.refresh_token:
-            credentials.refresh(Request())
-        else:
-            flow = InstalledAppFlow.from_client_secrets_file(
-                str(credentials_path),
-                ['https://www.googleapis.com/auth/spreadsheets.readonly']
-            )
-            credentials = flow.run_local_server(port=0)
-        
-        # Save credentials for future use
-        with open(token_path, 'wb') as token:
-            pickle.dump(credentials, token)
-
-    return credentials
+        console.print(result, markup=True)
+        if llm_output:
+            console.print(Markdown(llm_output))
 
 if __name__ == "__main__":
     main()

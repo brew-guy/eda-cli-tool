@@ -13,8 +13,16 @@ from plotly.subplots import make_subplots
 import webbrowser
 import tempfile
 import yaml
-import click
-import re
+import rich_click as click
+from rich.console import Console
+
+# Configure rich-click
+click.rich_click.USE_RICH_MARKUP = True
+click.rich_click.MAX_WIDTH = 100
+click.rich_click.SHOW_ARGUMENTS = True
+
+# Create console instance for rich output
+console = Console()
 
 # If modifying these scopes, delete the token.pickle file.
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets.readonly']
@@ -100,68 +108,62 @@ def read_data(source: str, sheet_index: int = 0) -> pd.DataFrame:
 
 def format_section(title: str, content: str) -> str:
     """Format a section with title and content."""
-    return (
-        click.style(f"\n{title}", fg="bright_blue", bold=True) +
-        click.style("\n" + "="*len(title), fg="bright_blue") +
-        "\n" + content
-    )
+    return f"\n[bold green]{title}[/]\n{'='*len(title)}\n{content}"
 
-def analyze_data(source: str, sheet_index: int = 0, llm: bool = False, model: str = None, viz: bool = False, prompt_type: str = None) -> str:
+def analyze_data(source, sheet_index=0, llm=False, model='llama3.2', viz=False, prompt_type=None):
     """
-    Analyze a data file and return basic statistics with optional LLM analysis and visualizations.
+    Analyze the data from the given source and return the analysis result and LLM output.
+    
+    Args:
+        source (str): Path to the data file or Google Sheets ID.
+        sheet_index (int): Index of the sheet to analyze (for Google Sheets).
+        llm (bool): Whether to include LLM-based analysis.
+        model (str): The LLM model to use.
+        viz (bool): Whether to generate interactive visualizations.
+        prompt_type (str): Specific prompt template to use.
+    
+    Returns:
+        Tuple[str, str]: The analysis result and LLM output.
     """
     try:
         df = read_data(source, sheet_index)
-        summary = []
         
         # Dataset shape with color
-        summary.append(click.style("Dataset Overview", fg="green", bold=True))
-        summary.append(click.style("===============", fg="green"))
-        summary.append(f"Shape: {click.style(str(df.shape), fg='bright_yellow')}")
+        dataset_overview = format_section("Dataset Overview", f"Shape: [yellow]{df.shape}[/]")
         
         # Column information section
-        summary.append(format_section("Column Information", df.dtypes.to_string()))
+        column_info = format_section("Column Information", df.dtypes.to_string())
         
         # Missing values with highlighting
-        missing_data = df.isnull().sum()
-        missing_formatted = []
-        for col, count in missing_data.items():
-            if count > 0:
-                missing_formatted.append(f"{col}: {click.style(str(count), fg='bright_red')}")
-            else:
-                missing_formatted.append(f"{col}: {click.style('0', fg='bright_green')}")
-        summary.append(format_section("Missing Values", "\n".join(missing_formatted)))
+        missing_values_content = ""
+        for col, count in df.isnull().sum().items():
+            color = "red" if count > 0 else "green"
+            missing_values_content += f"\n{col}: [{color}]{count}[/]"
+        missing_values = format_section("Missing Values", missing_values_content)
         
         # Summary statistics
-        summary.append(format_section("Summary Statistics", df.describe(include='all').to_string()))
+        summary_stats = format_section("Summary Statistics", df.describe(include='all').to_string())
         
-        # Print the statistical analysis immediately
-        print("\n".join(summary))
-        output = []
+        output = [dataset_overview, column_info, missing_values, summary_stats]
         
         if viz:
-            print(click.style("\nGenerating visualizations...", fg="bright_magenta", bold=True), flush=True)
             fig = create_visualizations(df)
-            
             with tempfile.NamedTemporaryFile(delete=False, suffix='.html') as f:
                 fig.write_html(f.name)
                 webbrowser.open(f'file://{f.name}')
-                # Only print the message, don't add to output
-                print(click.style("\nVisualizations opened in your browser.", fg="bright_magenta"))
+                output.append("\n[magenta]Visualizations opened in your browser.[/]")
         
+        llm_output = None
         if llm:
-            print(click.style("\nGenerating LLM Analysis...", fg="bright_cyan", bold=True), flush=True)
-            # Use specified prompt type or auto-detect
+            llm_section = format_section("LLM Analysis", "")
+            output.append(llm_section)
             data_type = prompt_type or detect_data_type(df)
-            llm_analysis = get_llm_analysis(df, model, prompt_type=data_type)
-            output.append(llm_analysis)
+            llm_output = get_llm_analysis(df, model, prompt_type=data_type)
         
-        return "\n".join(output)
+        return "\n".join(output), llm_output
         
     except Exception as e:
-        error_msg = click.style(f"Error analyzing file: {str(e)}", fg="bright_red", bold=True)
-        print(error_msg)
-        return error_msg
+        return f"[bold red]Error analyzing file: {str(e)}[/]", ""
 
 def load_prompt_template(prompt_type: str = 'default') -> str:
     """Load a prompt template from the prompts directory."""
@@ -186,30 +188,6 @@ def detect_data_type(df: pd.DataFrame) -> str:
         return 'categorical'
     return 'default'
 
-def format_markdown(text: str) -> str:
-    """Format markdown text for CLI display."""
-    # Replace headers (##, ###, etc.)
-    for i in range(6, 0, -1):
-        pattern = f"{'#' * i} (.*)"
-        text = re.sub(pattern, lambda m: click.style(m.group(1), fg='bright_cyan', bold=True), text)
-    
-    # Replace bold (**text**) - handle both inline and multiline
-    text = re.sub(r'\*\*(.*?)\*\*', lambda m: click.style(m.group(1), bold=True), text, flags=re.DOTALL)
-    
-    # Replace italic (*text*) - handle both inline and multiline
-    text = re.sub(r'\*(.*?)\*', lambda m: click.style(m.group(1), italic=True), text, flags=re.DOTALL)
-    
-    # Replace inline code (`text`)
-    text = re.sub(r'`(.*?)`', lambda m: click.style(m.group(1), fg='bright_yellow'), text)
-    
-    # Replace bullet points
-    text = re.sub(r'^- ', '• ', text, flags=re.MULTILINE)
-    
-    # Replace numbered lists (1., 2., etc.)
-    text = re.sub(r'^\d+\.\s', lambda m: click.style(m.group(), fg='bright_magenta'), text, flags=re.MULTILINE)
-    
-    return text
-
 def get_llm_analysis(df: pd.DataFrame, model: str, prompt_type: str) -> str:
     """Get LLM-based analysis of the dataset using Ollama."""
     prompt_template = load_prompt_template(prompt_type)
@@ -231,27 +209,13 @@ def get_llm_analysis(df: pd.DataFrame, model: str, prompt_type: str) -> str:
             stream=False
         )
         
-        # Parse and format the LLM response
-        analysis = response['response']
-        sections = analysis.split('\n#')
-        formatted_sections = []
-        
-        if not analysis.startswith('#'):
-            formatted_sections.append(click.style(sections[0].strip(), fg='bright_white'))
-        
-        for section in sections[1:] if analysis.startswith('#') else sections[1:]:
-            if section.strip():
-                parts = section.split('\n', 1)
-                if len(parts) == 2:
-                    header, content = parts
-                    formatted_sections.append(
-                        click.style(f"\n# {header}", fg='bright_cyan', bold=True) +
-                        click.style(f"\n{content.strip()}", fg='bright_white')
-                    )
-        
-        return "\n".join(formatted_sections)
+        # Get the markdown response
+        markdown_text = response['response']
+        return markdown_text  # Return the markdown text
+
     except Exception as e:
-        return click.style(f"Error getting LLM analysis: {str(e)}", fg='bright_red', bold=True)
+        console.print(f"[bold red]Error getting LLM analysis: {str(e)}[/]")
+        return ""
 
 def infer_type(value):
     """Infer the type of a value from Google Sheets."""

@@ -117,17 +117,6 @@ The project includes several development tools:
   poetry run pytest
   ```
 
-- **black** for code formatting:
-
-  ```bash
-  poetry run black src/ tests/
-  ```
-
-- **isort** for import sorting:
-  ```bash
-  poetry run isort src/ tests/
-  ```
-
 ### Running the CLI
 
 For development, you can run the CLI directly through poetry:
