@@ -1,5 +1,5 @@
 import pandas as pd
-from .base_reader.py import BaseReader
+from .base_reader import BaseReader
 
 class CSVReader(BaseReader):
     def read_data(self, source: str, sheet_index: int = 0) -> pd.DataFrame:

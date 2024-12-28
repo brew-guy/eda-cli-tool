@@ -1,11 +1,10 @@
 import rich_click as click
-from eda.core import analyze_data, get_sheets_list, get_google_credentials
+from eda.core import analyze_data, get_sheets_list
+from eda.data_readers.google_sheets_reader import GoogleSheetsReader
 import shutil
 from pathlib import Path
 from pyfiglet import Figlet
 import gspread
-from google_auth_oauthlib.flow import InstalledAppFlow
-from google.auth.transport.requests import Request
 from rich.console import Console
 from rich.markdown import Markdown
 
@@ -66,6 +65,13 @@ def setup(client_secrets_file):
     shutil.copy2(client_secrets_file, credentials_dir / 'client_secrets.json')
     click.echo("Authentication setup complete. You'll be prompted to authenticate in your browser when needed.")
 
+def authenticate_google_sheets():
+    """Authenticate and cache Google Sheets credentials."""
+    reader = GoogleSheetsReader()
+    credentials = reader.get_google_credentials()
+    gc = gspread.authorize(credentials)
+    print("Google Sheets authentication successful.")
+
 def select_sheet(source: str) -> int:
     """
     Interactive sheet selector for Google Sheets.
@@ -77,7 +83,8 @@ def select_sheet(source: str) -> int:
         Selected sheet index
     """
     sheet_id = source.replace('gs://', '')
-    credentials = get_google_credentials()
+    reader = GoogleSheetsReader()
+    credentials = reader.get_google_credentials()
     gc = gspread.authorize(credentials)
     spreadsheet = gc.open_by_key(sheet_id)
     
@@ -136,4 +143,15 @@ def analyze(source, output, sheet, llm, model, viz, prompt):
             console.print(Markdown(llm_output))
 
 if __name__ == "__main__":
+    import argparse
+    parser = argparse.ArgumentParser(description="EDA Tool")
+    parser.add_argument(
+        'auth', 
+        help="Authenticate Google Sheets",
+        action='store_true'
+    )
+    args = parser.parse_args()
+    
+    if args.auth:
+        authenticate_google_sheets()
     main()

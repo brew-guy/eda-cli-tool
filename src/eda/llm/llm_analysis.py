@@ -7,9 +7,9 @@ import yaml
 console = Console()
 
 def load_prompt_template(prompt_type: str = 'default') -> str:
-    prompt_path = Path(__file__).parent / 'prompt_templates' / f'{prompt_type}.yaml'
+    prompt_path = Path(__file__).parent.parent / 'prompts' / f'{prompt_type}.yaml'
     if not prompt_path.exists():
-        prompt_path = Path(__file__).parent / 'prompt_templates' / 'default.yaml'
+        prompt_path = Path(__file__).parent.parent / 'prompts' / 'default.yaml'
     with open(prompt_path) as f:
         prompt_data = yaml.safe_load(f)
     return prompt_data['template']
