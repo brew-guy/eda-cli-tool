@@ -118,7 +118,8 @@ def select_sheet(source: str) -> int:
 @click.option('--model', default='llama3.2', help='Ollama model to use (default: llama3.2)')
 @click.option('--viz', is_flag=True, help='Generate interactive visualizations')
 @click.option('--prompt', help='Specific prompt template to use (default: auto-detect)')
-def analyze(source, output, sheet, llm, model, viz, prompt):
+@click.option('--advanced-stats', is_flag=True, help='Include advanced statistical analysis')
+def analyze(source, output, sheet, llm, model, viz, prompt, advanced_stats):
     """
     Analyze a data file and generate summary statistics.
     
@@ -130,13 +131,14 @@ def analyze(source, output, sheet, llm, model, viz, prompt):
         eda analyze data.csv
         eda analyze data.xlsx --sheet 1
         eda analyze data.csv --llm --viz
-        eda analyze data.csv --llm --prompt timeseries
-        eda analyze gs://1234567890abcdef --llm --model codellama --viz
+        eda analyze data.csv --advanced-stats
+        eda analyze gs://1234567890abcdef --llm --model codellama --viz --advanced-stats
     """
     if (source.startswith('gs://') or source.endswith('.xlsx')) and sheet is None:
         sheet = select_sheet(source)
     
-    result, llm_output = analyze_data(source, sheet or 0, llm=llm, model=model, viz=viz, prompt_type=prompt)
+    result, llm_output = analyze_data(source, sheet or 0, llm=llm, model=model, viz=viz, 
+                                    prompt_type=prompt, advanced_stats=advanced_stats)
     if output:
         with open(output, 'w') as f:
             f.write(result)

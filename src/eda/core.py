@@ -7,6 +7,7 @@ import gspread
 from eda.data_readers import get_data_reader
 from eda.llm.llm_analysis import get_llm_analysis, detect_data_type
 from eda.visualizations.plotly_visualizations import create_visualizations
+from eda.analysis.statistical_analysis import calculate_correlations, perform_statistical_tests, detect_outliers
 
 # Create console instance for rich output
 console = Console()
@@ -27,7 +28,7 @@ def format_section(title: str, content: str) -> str:
     """Format a section with title and content."""
     return f"\n[bold green]{title}[/]\n{'='*len(title)}\n{content}"
 
-def analyze_data(source, sheet_index=0, llm=False, model='llama3.2', viz=False, prompt_type=None):
+def analyze_data(source, sheet_index=0, llm=False, model='llama3.2', viz=False, prompt_type=None, advanced_stats=False):
     """
     Analyze the data from the given source and return the analysis result and LLM output.
     
@@ -38,6 +39,7 @@ def analyze_data(source, sheet_index=0, llm=False, model='llama3.2', viz=False, 
         model (str): The LLM model to use.
         viz (bool): Whether to generate interactive visualizations.
         prompt_type (str): Specific prompt template to use.
+        advanced_stats (bool): Whether to include advanced statistical analysis.
     
     Returns:
         Tuple[str, str]: The analysis result and LLM output.
@@ -70,6 +72,19 @@ def analyze_data(source, sheet_index=0, llm=False, model='llama3.2', viz=False, 
                 fig.write_html(f.name)
                 webbrowser.open(f'file://{f.name}')
                 output.append("\n[magenta]Visualizations opened in your browser.[/]")
+        
+        if advanced_stats:
+            # Add statistical analysis sections
+            correlations = calculate_correlations(df)
+            stat_tests = perform_statistical_tests(df)
+            outliers = detect_outliers(df)
+            
+            stats_output = format_section("Correlation Analysis", correlations.to_string())
+            stats_output += format_section("\nStatistical Tests", stat_tests)
+            stats_output += format_section("\nOutlier Detection", 
+                                         "\n".join(f"{k}: {len(v)} outliers" for k, v in outliers.items()))
+            
+            output.append(stats_output)
         
         llm_output = None
         if llm:
