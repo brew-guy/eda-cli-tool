@@ -72,6 +72,11 @@ oauth*.json
 *.db
 *.sqlite
 *.sqlite3
+*.tsv
+
+# Exception for data-examples folder
+!data-examples/
+!data-examples/*
 
 # OS specific
 .DS_Store
@@ -88,4 +93,4 @@ coverage.xml
 htmlcov/
 .pytest_cache/
 .tox/
-.hypothesis/ 
+.hypothesis/

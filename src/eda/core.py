@@ -1,9 +1,7 @@
 """Core functionality for EDA tool."""
-from pathlib import Path
 from typing import List, Tuple
 import webbrowser
 import tempfile
-import yaml
 from rich.console import Console
 import gspread
 from eda.data_readers import get_data_reader
